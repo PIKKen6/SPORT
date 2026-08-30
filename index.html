@@ -88,7 +88,6 @@
         .btn-check-set { height: 36px; width: 100%; border-radius: var(--radius-sm); border: none; background: var(--surface-2); color: var(--text-muted); transition: 0.2s; }
         .btn-check-set.done { background: var(--success); color: white; }
 
-        /* === CHRONOMETRE AMELIORE === */
         .floating-timer { position: fixed; top: 20px; left: 50%; transform: translateX(-50%); background: var(--surface); border: 2px solid var(--secondary); color: var(--text-main); border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.8); z-index: 2500; display: none; flex-direction: column; overflow: hidden; width: 320px; max-width: 90vw; }
         .floating-timer.active { display: flex; animation: slideDownTimer 0.3s ease; }
         .timer-top-panel { display: flex; justify-content: space-between; align-items: center; padding: 20px; }
@@ -310,11 +309,10 @@
             state: {
                 history: [],
                 routines: [],
-                customExercises: [], // Format: { name: "", desc: "" }
+                customExercises: [], 
                 apiConfig: { url: "", key: "" }
             },
             
-            // Dictionnaire des exercices natifs avec descriptions
             dbExercises: [
                 { name: "Développé couché", desc: "Exercice polyarticulaire ciblant les pectoraux, les épaules antérieures et les triceps. Buste plaqué sur le banc, repoussez la charge." },
                 { name: "Squat", desc: "Flexion des jambes avec la barre sur les trapèzes. Sollicite fortement les quadriceps, les fessiers et la sangle abdominale." },
@@ -342,7 +340,6 @@
                 this.charts.initAll();
             },
 
-            // Retourne tous les exercices (Natif + Custom)
             getAllExercisesData: function() {
                 return [...this.dbExercises, ...this.state.customExercises].sort((a,b) => a.name.localeCompare(b.name));
             },
@@ -380,38 +377,44 @@
                 return { last, suggestedWeight, max1RM: Math.round(max1RM) };
             },
 
-            // --- MODULE DE SYNCHRONISATION (LOCAL & CLOUD) ---
             cloudSync: {
-                loadData: function() {
-                    // Chargement du cache local en priorité
+                loadData: async function() {
                     const stored = localStorage.getItem('titantrack_pro_data');
                     if (stored) {
                         try { this.state = Object.assign(app.state, JSON.parse(stored)); } catch(e) {}
                     }
                     
-                    // Si une API est configurée, on pourrait Fetch ici
-                    if (app.state.apiConfig && app.state.apiConfig.url) {
-                        console.log("Connecté à l'API : ", app.state.apiConfig.url);
-                        // Implémentation future du Fetch(GET)
+                    if (app.state.apiConfig && app.state.apiConfig.url && app.state.apiConfig.key) {
+                        try {
+                            const response = await fetch(app.state.apiConfig.url, {
+                                method: 'GET',
+                                headers: { 'X-Master-Key': app.state.apiConfig.key }
+                            });
+                            const data = await response.json();
+                            if(data.record) {
+                                app.state = Object.assign(app.state, data.record);
+                                localStorage.setItem('titantrack_pro_data', JSON.stringify(app.state));
+                                app.updateUI();
+                                if(app.charts) { app.charts.update1RM(); app.charts.updateAnalytics(); }
+                            }
+                        } catch(err) {
+                            console.error("Erreur de récupération Cloud", err);
+                        }
                     }
                 },
                 
                 persist: function() {
-                    // 1. Sauvegarde locale garantie
                     localStorage.setItem('titantrack_pro_data', JSON.stringify(app.state));
                     
-                    // 2. Sauvegarde Cloud si API configurée (Structure prête)
-                    if (app.state.apiConfig && app.state.apiConfig.url) {
-                        /*
+                    if (app.state.apiConfig && app.state.apiConfig.url && app.state.apiConfig.key) {
                         fetch(app.state.apiConfig.url, {
-                            method: 'PUT', // ou POST
+                            method: 'PUT',
                             headers: { 
                                 'Content-Type': 'application/json',
-                                'Authorization': app.state.apiConfig.key
+                                'X-Master-Key': app.state.apiConfig.key
                             },
                             body: JSON.stringify(app.state)
-                        }).catch(err => console.error("Cloud Sync Failed", err));
-                        */
+                        }).catch(err => console.error("Erreur de sauvegarde Cloud", err));
                     }
                 },
                 
@@ -419,7 +422,7 @@
                     app.state.apiConfig.url = document.getElementById('set-api-url').value.trim();
                     app.state.apiConfig.key = document.getElementById('set-api-key').value.trim();
                     this.persist();
-                    alert("Configuration API sauvegardée !");
+                    alert("Configuration API sauvegardée ! Vos données sont maintenant synchronisées.");
                 },
                 
                 exportLocal: function() {
@@ -436,7 +439,7 @@
                             app.state = JSON.parse(ev.target.result);
                             app.cloudSync.persist(); 
                             app.updateUI();
-                            app.charts.update1RM(); app.charts.updateAnalytics();
+                            if(app.charts) { app.charts.update1RM(); app.charts.updateAnalytics(); }
                             alert("Données restaurées !");
                         } catch(error) { alert("Fichier invalide."); }
                     };
@@ -473,7 +476,7 @@
                     exos.forEach(ex => filter.innerHTML += `<option value="${ex}">${ex}</option>`);
                     if(exos.includes(currentFilter)) filter.value = currentFilter;
 
-                    this.showExerciseDescription(); // Update desc for first item
+                    this.showExerciseDescription();
                 },
                 
                 showExerciseDescription: function() {
@@ -801,7 +804,6 @@
                 }
             },
 
-            // --- CHRONOMETRE AVEC +10 / -10 ---
             timer: {
                 totalDuration: 0,
                 start: function(duration) {
@@ -864,9 +866,8 @@
                 adjust: function(seconds) {
                     app.timeLeft += seconds;
                     if(app.timeLeft < 0) app.timeLeft = 0;
-                    this.totalDuration += seconds; // Optionnel : ajuste aussi la durée totale pour la jauge
+                    this.totalDuration += seconds; 
                     
-                    // Rafraîchissement visuel immédiat
                     const m = Math.floor(app.timeLeft / 60).toString().padStart(2, '0');
                     const s = (app.timeLeft % 60).toString().padStart(2, '0');
                     document.getElementById('ft-display').textContent = `${m}:${s}`;
