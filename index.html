@@ -50,7 +50,7 @@
         .stat-box h3 { font-size: 0.8rem; color: var(--text-muted); text-transform: uppercase; margin-bottom: 5px; }
         .stat-box .val { font-size: 1.4rem; font-weight: 700; color: var(--secondary); }
         
-        .list-item { background: var(--surface-2); padding: 15px; border-radius: var(--radius-sm); margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; }
+        .list-item { background: var(--surface-2); padding: 15px; border-radius: var(--radius-sm); margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center; transition: var(--transition); }
         .list-item-content h4 { color: var(--primary); margin-bottom: 4px; font-size: 1rem; }
         .list-item-content p { color: var(--text-muted); font-size: 0.85rem; }
         
@@ -121,6 +121,7 @@
     </div>
 
     <div class="main-content">
+        <!-- VUE DASHBOARD -->
         <div id="view-dashboard" class="view active">
             <div class="stats-grid">
                 <div class="stat-box">
@@ -146,6 +147,7 @@
             </div>
         </div>
 
+        <!-- VUE SEANCES -->
         <div id="view-routines" class="view">
             <button class="btn btn-primary" style="margin-bottom: 20px;" onclick="app.modals.routineBuilder.open()">
                 <i class="fas fa-plus"></i> Créer une séance
@@ -153,6 +155,7 @@
             <div id="routines-list"></div>
         </div>
 
+        <!-- VUE ANALYSES -->
         <div id="view-analytics" class="view">
             <div class="card">
                 <div class="card-header"><span class="card-title"><i class="fas fa-chart-bar" style="color:var(--primary)"></i> Volume par Séance</span></div>
@@ -160,6 +163,7 @@
             </div>
         </div>
 
+        <!-- VUE HISTORIQUE -->
         <div id="view-history" class="view">
             <div class="card">
                 <div class="card-header"><span class="card-title"><i class="fas fa-history" style="color:var(--success)"></i> Historique</span></div>
@@ -175,10 +179,10 @@
         <div class="nav-item" onclick="app.nav.switch('view-history', this)"><i class="fas fa-list-alt"></i><span>Historique</span></div>
     </div>
 
-    <!-- MODAL ROUTINE BUILDER -->
+    <!-- MODAL ROUTINE BUILDER (CRÉATION / MODIFICATION) -->
     <div id="modal-routine-builder" class="modal-overlay">
         <div class="modal-header">
-            <h2>Nouvelle Séance</h2>
+            <h2 id="rb-modal-title">Nouvelle Séance</h2>
             <button class="btn-icon" onclick="app.modals.routineBuilder.close()"><i class="fas fa-times"></i></button>
         </div>
         <div class="modal-body">
@@ -229,8 +233,11 @@
                 </button>
             </div>
         </div>
-        <div class="modal-footer">
-            <button class="btn btn-primary" onclick="app.modals.routineBuilder.save()">Sauvegarder la séance</button>
+        <div class="modal-footer" style="display:flex; justify-content:space-between; gap:10px;">
+            <button id="rb-delete-btn" class="btn" style="background:rgba(207, 102, 121, 0.1); color:var(--danger); border:1px solid var(--danger); width:auto; display:none;" onclick="app.modals.routineBuilder.deleteRoutine()">
+                <i class="fas fa-trash"></i>
+            </button>
+            <button class="btn btn-primary" style="flex:1;" onclick="app.modals.routineBuilder.save()">Sauvegarder la séance</button>
         </div>
     </div>
 
@@ -277,14 +284,14 @@
             <div class="card">
                 <div class="card-header"><span class="card-title">Connexion API (Cloud)</span></div>
                 <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 15px;">
-                    L'hébergement GitHub Pages étant statique, renseignez l'URL d'une API tierce (ex: JSONBin.io ou votre backend) pour centraliser vos sauvegardes en ligne. Si laissé vide, les données sont stockées en local sur cet appareil.
+                    L'hébergement GitHub Pages étant statique, renseignez l'URL d'une API tierce pour centraliser vos sauvegardes en ligne.
                 </p>
                 <div class="form-group">
-                    <label>URL de l'API Cloud (Endpoint GET/POST)</label>
+                    <label>URL de l'API Cloud</label>
                     <input type="url" id="set-api-url" placeholder="https://api.jsonbin.io/v3/b/votre-id">
                 </div>
                 <div class="form-group">
-                    <label>Clé API / Token (Optionnel)</label>
+                    <label>Clé API / Token</label>
                     <input type="password" id="set-api-key" placeholder="Bearer ou X-Master-Key...">
                 </div>
                 <button class="btn btn-primary" onclick="app.cloudSync.saveSettings()"><i class="fas fa-cloud-upload-alt"></i> Sauvegarder Config Cloud</button>
@@ -519,13 +526,16 @@
                     app.state.routines.forEach(rt => {
                         const descHtml = rt.desc ? `<p style="font-style:italic; margin-bottom:5px;">${rt.desc}</p>` : '';
                         container.innerHTML += `
-                            <div class="list-item" onclick="app.modals.activeWorkout.open('${rt.id}')">
-                                <div class="list-item-content">
+                            <div class="list-item">
+                                <div class="list-item-content" style="flex:1; cursor:pointer;" onclick="app.modals.activeWorkout.open('${rt.id}')">
                                     <h4>${rt.name}</h4>
                                     ${descHtml}
                                     <p>${rt.exercises.length} exercices paramétrés</p>
                                 </div>
-                                <i class="fas fa-play" style="color:var(--primary); font-size:1.5rem;"></i>
+                                <div style="display:flex; gap:15px; align-items:center; padding-left:10px;">
+                                    <i class="fas fa-edit builder-btn-action" style="font-size:1.2rem;" onclick="app.modals.routineBuilder.open('${rt.id}')"></i>
+                                    <i class="fas fa-play" style="color:var(--primary); font-size:1.5rem; cursor:pointer;" onclick="app.modals.activeWorkout.open('${rt.id}')"></i>
+                                </div>
                             </div>
                         `;
                     });
@@ -643,10 +653,28 @@
             modals: {
                 routineBuilder: {
                     tempExercises: [],
-                    open: function() {
-                        this.tempExercises = [];
-                        document.getElementById('rb-name').value = '';
-                        document.getElementById('rb-desc').value = '';
+                    editId: null, // Identifiant pour le mode édition
+                    
+                    open: function(routineId = null) {
+                        this.editId = routineId;
+                        
+                        if (routineId) {
+                            // Mode Édition
+                            const rt = app.state.routines.find(r => r.id === routineId);
+                            document.getElementById('rb-name').value = rt.name || '';
+                            document.getElementById('rb-desc').value = rt.desc || '';
+                            this.tempExercises = JSON.parse(JSON.stringify(rt.exercises)); // copie profonde
+                            document.getElementById('rb-modal-title').innerText = "Modifier la séance";
+                            document.getElementById('rb-delete-btn').style.display = "inline-flex";
+                        } else {
+                            // Mode Création
+                            this.tempExercises = [];
+                            document.getElementById('rb-name').value = '';
+                            document.getElementById('rb-desc').value = '';
+                            document.getElementById('rb-modal-title').innerText = "Nouvelle Séance";
+                            document.getElementById('rb-delete-btn').style.display = "none";
+                        }
+                        
                         this.renderList();
                         document.getElementById('modal-routine-builder').classList.add('open');
                     },
@@ -702,15 +730,37 @@
                         const name = document.getElementById('rb-name').value.trim();
                         const desc = document.getElementById('rb-desc').value.trim();
                         if (!name || this.tempExercises.length === 0) return alert('Nom et exercices requis.');
-                        app.state.routines.push({ 
-                            id: 'rt_' + Date.now(), 
-                            name: name, 
-                            desc: desc,
-                            exercises: [...this.tempExercises] 
-                        });
+                        
+                        if (this.editId) {
+                            // Mise à jour de la séance existante
+                            const rt = app.state.routines.find(r => r.id === this.editId);
+                            if (rt) {
+                                rt.name = name;
+                                rt.desc = desc;
+                                rt.exercises = [...this.tempExercises];
+                            }
+                        } else {
+                            // Création d'une nouvelle séance
+                            app.state.routines.push({ 
+                                id: 'rt_' + Date.now(), 
+                                name: name, 
+                                desc: desc,
+                                exercises: [...this.tempExercises] 
+                            });
+                        }
+                        
                         app.cloudSync.persist();
                         app.updateUI();
                         this.close();
+                    },
+                    deleteRoutine: function() {
+                        if (!this.editId) return;
+                        if (confirm("Supprimer cette séance ? Cette action est irréversible.")) {
+                            app.state.routines = app.state.routines.filter(r => r.id !== this.editId);
+                            app.cloudSync.persist();
+                            app.updateUI();
+                            this.close();
+                        }
                     }
                 },
 
