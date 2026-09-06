@@ -109,6 +109,8 @@
         .chart-wrapper { height: 250px; width: 100%; position: relative; }
         
         .ex-definition { font-size: 0.85rem; color: var(--text-muted); margin-top: 8px; padding: 10px; background: rgba(255,255,255,0.05); border-radius: var(--radius-sm); border-left: 3px solid var(--primary); display: none; }
+        .builder-btn-action { color: var(--text-muted); cursor: pointer; padding: 5px; font-size: 1.1rem; transition: 0.2s; }
+        .builder-btn-action:hover { color: var(--primary); }
     </style>
 </head>
 <body>
@@ -185,6 +187,11 @@
                 <input type="text" id="rb-name" placeholder="Ex: Leg Day, Vovinam..." required>
             </div>
             
+            <div class="form-group">
+                <label>Description (Optionnelle)</label>
+                <textarea id="rb-desc" rows="2" placeholder="Ex: Focus tempo lent, ou séance d'hypertrophie..."></textarea>
+            </div>
+            
             <div class="card">
                 <div class="card-header"><span class="card-title">Exercices ajoutés</span></div>
                 <div id="rb-exercises-list"></div>
@@ -204,8 +211,14 @@
                 <div id="rb-ex-desc" class="ex-definition"></div>
 
                 <div class="form-row" style="margin-top: 15px;">
-                    <div class="form-group"><label>Séries</label><input type="number" id="rb-ex-sets" value="4" min="1"></div>
-                    <div class="form-group"><label>Reps cibles</label><input type="number" id="rb-ex-targetreps" value="10" min="1"></div>
+                    <div class="form-group">
+                        <label>Séries</label>
+                        <input type="number" id="rb-ex-sets" value="4" min="1">
+                    </div>
+                    <div class="form-group">
+                        <label>Reps cibles (ex: 12,10,8)</label>
+                        <input type="text" id="rb-ex-targetreps" value="10" placeholder="Ex: 10 ou 12,10,8,6">
+                    </div>
                 </div>
                 <div class="form-row">
                     <div class="form-group"><label>Repos Séries (s)</label><input type="number" id="rb-ex-restsets" value="90" step="10"></div>
@@ -350,8 +363,8 @@
                         id: 'def_1',
                         name: 'Full Body Standard',
                         exercises: [
-                            { name: 'Squat', sets: 4, targetReps: 10, restSets: 90, restExercise: 120 },
-                            { name: 'Développé couché', sets: 4, targetReps: 8, restSets: 90, restExercise: 120 }
+                            { name: 'Squat', sets: 4, targetReps: "10", restSets: 90, restExercise: 120 },
+                            { name: 'Développé couché', sets: 4, targetReps: "8", restSets: 90, restExercise: 120 }
                         ]
                     });
                     this.cloudSync.persist();
@@ -504,10 +517,12 @@
                     const container = document.getElementById('routines-list');
                     container.innerHTML = '';
                     app.state.routines.forEach(rt => {
+                        const descHtml = rt.desc ? `<p style="font-style:italic; margin-bottom:5px;">${rt.desc}</p>` : '';
                         container.innerHTML += `
                             <div class="list-item" onclick="app.modals.activeWorkout.open('${rt.id}')">
                                 <div class="list-item-content">
                                     <h4>${rt.name}</h4>
+                                    ${descHtml}
                                     <p>${rt.exercises.length} exercices paramétrés</p>
                                 </div>
                                 <i class="fas fa-play" style="color:var(--primary); font-size:1.5rem;"></i>
@@ -631,6 +646,7 @@
                     open: function() {
                         this.tempExercises = [];
                         document.getElementById('rb-name').value = '';
+                        document.getElementById('rb-desc').value = '';
                         this.renderList();
                         document.getElementById('modal-routine-builder').classList.add('open');
                     },
@@ -640,7 +656,7 @@
                         const ex = {
                             name: document.getElementById('rb-ex-select').value,
                             sets: parseInt(document.getElementById('rb-ex-sets').value),
-                            targetReps: parseInt(document.getElementById('rb-ex-targetreps').value),
+                            targetReps: document.getElementById('rb-ex-targetreps').value.trim(),
                             restSets: parseInt(document.getElementById('rb-ex-restsets').value),
                             restExercise: parseInt(document.getElementById('rb-ex-restex').value)
                         };
@@ -651,21 +667,47 @@
                         this.tempExercises.splice(idx, 1);
                         this.renderList();
                     },
+                    moveUp: function(idx) {
+                        if (idx > 0) {
+                            const temp = this.tempExercises[idx - 1];
+                            this.tempExercises[idx - 1] = this.tempExercises[idx];
+                            this.tempExercises[idx] = temp;
+                            this.renderList();
+                        }
+                    },
+                    moveDown: function(idx) {
+                        if (idx < this.tempExercises.length - 1) {
+                            const temp = this.tempExercises[idx + 1];
+                            this.tempExercises[idx + 1] = this.tempExercises[idx];
+                            this.tempExercises[idx] = temp;
+                            this.renderList();
+                        }
+                    },
                     renderList: function() {
                         document.getElementById('rb-exercises-list').innerHTML = this.tempExercises.map((ex, i) => `
-                            <div style="display:flex; justify-content:space-between; padding:10px 0; border-bottom:1px solid var(--border);">
-                                <div>
+                            <div style="display:flex; justify-content:space-between; align-items:center; padding:10px 0; border-bottom:1px solid var(--border);">
+                                <div style="flex:1;">
                                     <strong>${ex.name}</strong><br>
-                                    <small>${ex.sets}x${ex.targetReps} | Repos: ${ex.restSets}s / ${ex.restExercise}s</small>
+                                    <small>${ex.sets}x[${ex.targetReps}] | Repos: ${ex.restSets}s / ${ex.restExercise}s</small>
                                 </div>
-                                <i class="fas fa-times" style="color:var(--danger); padding:10px;" onclick="app.modals.routineBuilder.removeExercise(${i})"></i>
+                                <div style="display:flex; gap:5px;">
+                                    <i class="fas fa-chevron-up builder-btn-action" onclick="app.modals.routineBuilder.moveUp(${i})"></i>
+                                    <i class="fas fa-chevron-down builder-btn-action" onclick="app.modals.routineBuilder.moveDown(${i})"></i>
+                                    <i class="fas fa-times builder-btn-action" style="color:var(--danger);" onclick="app.modals.routineBuilder.removeExercise(${i})"></i>
+                                </div>
                             </div>
                         `).join('');
                     },
                     save: function() {
                         const name = document.getElementById('rb-name').value.trim();
+                        const desc = document.getElementById('rb-desc').value.trim();
                         if (!name || this.tempExercises.length === 0) return alert('Nom et exercices requis.');
-                        app.state.routines.push({ id: 'rt_' + Date.now(), name: name, exercises: [...this.tempExercises] });
+                        app.state.routines.push({ 
+                            id: 'rt_' + Date.now(), 
+                            name: name, 
+                            desc: desc,
+                            exercises: [...this.tempExercises] 
+                        });
                         app.cloudSync.persist();
                         app.updateUI();
                         this.close();
@@ -713,28 +755,43 @@
                     renderRunner: function() {
                         const container = document.getElementById('aw-body');
                         container.innerHTML = '';
+                        
+                        if (this.currentRoutine.desc) {
+                            container.innerHTML += `<div style="background:rgba(255,255,255,0.05); padding:10px; border-radius:8px; margin-bottom:20px; font-size:0.9rem; color:var(--accent); text-align:center;">${this.currentRoutine.desc}</div>`;
+                        }
+                        
                         const allEx = app.getAllExercisesData();
 
                         this.currentRoutine.exercises.forEach((ex, exIdx) => {
-                            const stats = app.getExerciseStats(ex.name, ex.targetReps);
+                            let repArray = String(ex.targetReps).split(',').map(s => parseInt(s.trim())).filter(n => !isNaN(n));
+                            if(repArray.length === 0) repArray = [10];
+                            
+                            let baseTargetRep = repArray[0];
+                            const stats = app.getExerciseStats(ex.name, baseTargetRep);
                             const exDef = allEx.find(e => e.name === ex.name);
                             
                             let hintHtml = '';
                             if(exDef && exDef.desc) hintHtml += `<div class="exercise-hints" style="border-left-color:var(--primary); opacity:0.8;">${exDef.desc}</div>`;
                             
                             hintHtml += stats.last 
-                                ? `<div class="exercise-hints"><i class="fas fa-history"></i> Précédent: <strong>${stats.last.weight}kg x ${stats.last.reps}</strong><br><i class="fas fa-bullseye"></i> Objectif (${ex.targetReps} reps): <strong>${stats.suggestedWeight}kg</strong></div>`
+                                ? `<div class="exercise-hints"><i class="fas fa-history"></i> Précédent: <strong>${stats.last.weight}kg x ${stats.last.reps}</strong><br><i class="fas fa-bullseye"></i> Objectif estimé: <strong>${stats.suggestedWeight}kg</strong></div>`
                                 : `<div class="exercise-hints"><i class="fas fa-info-circle"></i> Nouveau mouvement enregistré.</div>`;
 
                             let rowsHtml = '';
                             for(let i=0; i<ex.sets; i++) {
-                                let prefillWeight = stats.suggestedWeight || '';
-                                let prefillReps = ex.targetReps || '';
+                                let setTargetRep = repArray[i] !== undefined ? repArray[i] : repArray[repArray.length - 1];
+                                
+                                let setSuggestedWeight = '';
+                                if(stats.max1RM > 0) {
+                                    let calcWeight = stats.max1RM / (36 / (37 - setTargetRep));
+                                    setSuggestedWeight = Math.round(calcWeight * 2) / 2;
+                                }
+
                                 rowsHtml += `
                                     <div class="set-row" id="row-${exIdx}-${i}">
                                         <div class="set-number">${i+1}</div>
-                                        <input type="number" step="0.5" placeholder="kg" id="w-${exIdx}-${i}" value="${prefillWeight}">
-                                        <input type="number" placeholder="reps" id="r-${exIdx}-${i}" value="${prefillReps}">
+                                        <input type="number" step="0.5" placeholder="kg" id="w-${exIdx}-${i}" value="${setSuggestedWeight}">
+                                        <input type="number" placeholder="reps" id="r-${exIdx}-${i}" value="${setTargetRep}">
                                         <input type="number" placeholder="rpe" id="rpe-${exIdx}-${i}">
                                         <button class="btn-check-set" onclick="app.modals.activeWorkout.checkSet(${exIdx}, ${i})">
                                             <i class="fas fa-check"></i>
